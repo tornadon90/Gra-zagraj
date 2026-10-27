@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kostki 3D - Gra do 50 punktów</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* Pełnoekranowy panel wideo nakładany na grę */
+        #video-intro {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        #intro-player {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Przycisk pomijania - duży, widoczny i zawsze klikalny */
+        .skip-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 10005;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .skip-btn:hover {
+            background: #1d4ed8;
+        }
+
+        /* Główne okienko graficzne gry */
+        .window-container {
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            width: 420px;
+            padding: 25px;
+            text-align: center;
+            color: #333;
+            border: 4px solid #f1f5f9;
+        }
+
+        h1 {
+            font-size: 26px;
+            color: #1e293b;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .mode-selection {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
+            background: #e2e8f0;
+            border: none;
+            color: #475569;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-around;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+
+        .player-score {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+        }
+
+        .player-score.active-turn {
+            background: #dbeafe;
+            border-color: #bfdbfe;
+        }
+
+        .player-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .score-val {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        .dice-area {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 130px;
+            margin-bottom: 20px;
+            perspective: 600px;
+        }
+
+        .cube {
+            width: 70px;
+            height: 70px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .face {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            display: grid;
+            grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+            padding: 6px;
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.1);
+        }
+
+        .dot {
+            display: block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1e293b;
+            align-self: center;
+            justify-self: center;
+        }
+
+        .face-1 { transform: rotateY(0deg) translateZ(35px); }
+        .face-2 { transform: rotateX(180deg) translateZ(35px); }
+        .face-3 { transform: rotateY(90deg) translateZ(35px); }
+        .face-4 { transform: rotateY(-90deg) translateZ(35px); }
+        .face-5 { transform: rotateX(90deg) translateZ(35px); }
+        .face-6 { transform: rotateX(-90deg) translateZ(35px); }
+
+        .face-1 .dot:nth-child(1) { grid-area: 2 / 2; }
+        .face-2 .dot:nth-child(1) { grid-area: 1 / 1; }
+        .face-2 .dot:nth-child(2) { grid-area: 3 / 3; }
+        .face-3 .dot:nth-child(1) { grid-area: 1 / 1; }
+        .face-3 .dot:nth-child(2) { grid-area: 2 / 2; }
+        .face-3 .dot:nth-child(3) { grid-area: 3 / 3; }
+        .face-4 .dot:nth-child(1) { grid-area: 1 / 1; }
+        .face-4 .dot:nth-child(2) { grid-area: 1 / 3; }
+        .face-4 .dot:nth-child(3) { grid-area: 3 / 1; }
+        .face-4 .dot:nth-child(4) { grid-area: 3 / 3; }
+        .face-5 .dot:nth-child(1) { grid-area: 1 / 1; }
+        .face-5 .dot:nth-child(2) { grid-area: 1 / 3; }
+        .face-5 .dot:nth-child(3) { grid-area: 2 / 2; }
+        .face-5 .dot:nth-child(4) { grid-area: 3 / 1; }
+        .face-5 .dot:nth-child(5) { grid-area: 3 / 3; }
+        .face-6 .dot:nth-child(1) { grid-area: 1 / 1; }
+        .face-6 .dot:nth-child(2) { grid-area: 1 / 3; }
+        .face-6 .dot:nth-child(3) { grid-area: 2 / 1; }
+        .face-6 .dot:nth-child(4) { grid-area: 2 / 3; }
+        .face-6 .dot:nth-child(5) { grid-area: 3 / 1; }
+        .face-6 .dot:nth-child(6) { grid-area: 3 / 3; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button.main-btn {
+            flex: 2;
+            background: #ffca28;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        button.main-btn:hover:not(:disabled) {
+            background: #ffd54f;
+            transform: translateY(-2px);
+        }
+
+        button.reset-btn {
+            flex: 1;
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button.reset-btn:hover {
+            background: #dc2626;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result-box {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 15px;
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .result-text {
+            font-size: 18px;
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        .author-footer {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .author-name {
+            font-weight: 700;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ekran wideo nakładany Z GÓRY na działającą grę -->
+    <div id="video-intro">
+        <button class="skip-btn" onclick="zamknijIntro()">Pomiń intro ➔</button>
+        <video id="intro-player" autoplay muted playsinline onended="zamknijIntro()">
+            <source src="animacja.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <!-- Okienko gry - jest załadowane pod spodem i od początku w pełni aktywne -->
+    <div class="window-container">
+        <h1>gra w kośći do 50</h1>
+        
+        <div class="mode-selection">
+            <button class="mode-btn active" id="mode1" onclick="zmienTryb(1)">1 Gracz vs Komputer</button>
+            <button class="mode-btn" id="mode2" onclick="zmienTryb(2)">2 Graczy</button>
+        </div>
+
+        <div class="scoreboard">
+            <div class="player-score active-turn" id="scoreBlock1">
+                <div class="player-name" id="p1Name">Gracz 1</div>
+                <div class="score-val" id="s1">0</div>
+            </div>
+            <div class="player-score" id="scoreBlock2">
+                <div class="player-name" id="p2Name">Komputer</div>
+                <div class="score-val" id="s2">0</div>
+            </div>
+        </div>
+        
+        <div class="dice-area">
+            <div class="cube" id="cube1">
+                <div class="face face-1"><span class="dot"></span></div>
+                <div class="face face-2"><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-3"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-4"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-5"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-6"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+
+            <div class="cube" id="cube2">
+                <div class="face face-1"><span class="dot"></span></div>
+                <div class="face face-2"><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-3"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-4"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-5"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                <div class="face face-6"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="main-btn" id="rollBtn" onclick="wykonajRzut()">Rzuć kostkami</button>
+            <button class="reset-btn" onclick="nowaGra()">Nowa gra</button>
+        </div>
+
+        <div class="result-box">
+            <div class="result-text" id="resultLabel">Zacznij grę! Cel to 50 punktów.</div>
+        </div>
+
+        <div class="author-footer">
+            Autor projektu: <span class="author-name">Tomasz Szydło</span> | Nick: <span class="author-name" style="color: #2563eb;">TOmitornado</span>
+        </div>
+    </div>
+    <script>
+        var trybGry = 1; 
+        var punkty = [0, 0]; 
+        var aktywnyGracz = 0; 
+        var koniecGry = false;
+
+        // POPRAWKA: Proste, całkowite usunięcie czarnego ekranu wideo z widoku
+        function zamknijIntro() {
+            var introElement = document.getElementById('video-intro');
+            if (introElement) {
+                introElement.style.display = 'none';
+                console.log("Intro zostało zamknięte, interfejs gry pod spodem jest gotowy.");
+            }
+        }
+
+        // BEZPIECZNIK: Jeśli film się zawiesi lub go nie ma, schowaj czarny ekran automatycznie po 10 sekundach
+        setTimeout(function() {
+            zamknijIntro();
+        }, 10000);
+
+        var rotacje = {
+            1: { x: 0, y: 0 },
+            2: { x: 180, y: 0 },
+            3: { x: 0, y: -90 },
+            4: { x: 0, y: 90 },
+            5: { x: -90, y: 0 },
+            6: { x: 90, y: 0 }
+        };
+
+        function grajDzwiekKostki() {
+            try {
+                var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                var ctx = new AudioCtx();
+                for (var i = 0; i < 6; i++) {
+                    (function(s) {
+                        setTimeout(function() {
+                            var osc = ctx.createOscillator();
+                            var gain = ctx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(90 + Math.random() * 50, ctx.currentTime);
+                            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.1);
+                        }, s * 130);
+                    })(i);
+                }
+            } catch (e) {}
+        }
+
+        function zmienTryb(tryb) {
+            if (punkty[0] > 0 || punkty[1] > 0) {
+                if (!confirm("Zmiana trybu zresetuje punkty. Kontynuować?")) return;
+            }
+            trybGry = tryb;
+            document.getElementById('mode1').classList.toggle('active', tryb === 1);
+            document.getElementById('mode2').classList.toggle('active', tryb === 2);
+            document.getElementById('p2Name').textContent = tryb === 1 ? "Komputer" : "Gracz 2";
+            nowaGra();
+        }
+
+        function wykonajRzut() {
+            if (koniecGry) return;
+            
+            grajDzwiekKostki();
+            
+            var btn = document.getElementById('rollBtn');
+            var tekstWyniku = document.getElementById('resultLabel');
+            btn.disabled = true;
+
+            var nazwaGracza = aktywnyGracz === 0 ? "Gracz 1" : (trybGry === 1 ? "Komputer" : "Gracz 2");
+            tekstWyniku.textContent = nazwaGracza + " rzuca kostkami...";
+
+            var r1 = Math.floor(Math.random() * 6) + 1;
+            var r2 = Math.floor(Math.random() * 6) + 1;
+            var sumaTur = r1 + r2;
+
+            var obrotX1 = rotacje[r1].x + (Math.floor(Math.random() * 3) + 3) * 360;
+            var obrotY1 = rotacje[r1].y + (Math.floor(Math.random() * 3) + 3) * 360;
+            var obrotX2 = rotacje[r2].x + (Math.floor(Math.random() * 3) + 3) * 360;
+            var obrotY2 = rotacje[r2].y + (Math.floor(Math.random() * 3) + 3) * 360;
+
+            document.getElementById('cube1').style.transform = "rotateX(" + obrotX1 + "deg) rotateY(" + obrotY1 + "deg)";
+            document.getElementById('cube2').style.transform = "rotateX(" + obrotX2 + "deg) rotateY(" + obrotY2 + "deg)";
+
+            setTimeout(function() {
+                punkty[aktywnyGracz] += sumaTur;
+                document.getElementById('s' + (aktywnyGracz + 1)).textContent = punkty[aktywnyGracz];
+                tekstWyniku.innerHTML = nazwaGracza + ' wyrzucił <span style="font-weight:800; color:#2563eb;">' + r1 + ' i ' + r2 + '</span> (+' + sumaTur + ' pkt)';
+
+                if (punkty[aktywnyGracz] >= 50) {
+                    koniecGry = true;
+                    tekstWyniku.innerHTML = '🎉 Wygrywa <span style="font-weight:900; color:#10b981; font-size:20px;">' + nazwaGracza + '</span> uzyskując ' + punkty[aktywnyGracz] + ' pkt!';
+                    btn.disabled = true;
+                    return;
+                }
+
+                document.getElementById('scoreBlock' + (aktywnyGracz + 1)).classList.remove('active-turn');
+                aktywnyGracz = aktywnyGracz === 0 ? 1 : 0;
+                document.getElementById('scoreBlock' + (aktywnyGracz + 1)).classList.add('active-turn');
+
+                if (trybGry === 1 && aktywnyGracz === 1) {
+                    setTimeout(function() {
+                        wykonajRzut();
+                    }, 1200);
+                } else {
+                    btn.disabled = false;
+                }
+            }, 1200);
+        }
+
+        function nowaGra() {
+            punkty = [0, 0];
+            aktywnyGracz = 0;
+            koniecGry = false;
+            document.getElementById('s1').textContent = "0";
+            document.getElementById('s2').textContent = "0";
+            document.getElementById('scoreBlock1').classList.add('active-turn');
+            document.getElementById('scoreBlock2').classList.remove('active-turn');
+            document.getElementById('cube1').style.transform = "rotateX(0deg) rotateY(0deg)";
+            document.getElementById('cube2').style.transform = "rotateX(0deg) rotateY(0deg)";
+            document.getElementById('rollBtn').disabled = false;
+            document.getElementById('resultLabel').textContent = "Nowa gra rozpoczęta! Cel to 50 punktów.";
+        }
+    </script>
+</body>
+</html>
